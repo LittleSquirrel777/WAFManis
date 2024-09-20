@@ -4,9 +4,10 @@ from input_tree_node import Node
 from helper_functions import _print_exception, random_choose_with_weights
 
 class Mutator:
-
-    mutation_types = {0, # tree mutations
-                     1} # string mutations
+    mutation_types = {
+        0,  # tree mutations
+        1   # string mutations
+    } 
 
     def __init__(self, fuzzer, _input, seed=0, reproduce_mode = False):
         self.fuzzer = fuzzer
@@ -44,7 +45,6 @@ class Mutator:
                             'insert_random_subtree',
                         ]
                         
-        
                     chosen_mutator = random_choose_with_weights(mutators)
                     if self.reproduce_mode:
                         self.mutations.append([chosen_mutator, node_to_mutate, random.getstate()])
@@ -74,6 +74,16 @@ class Mutator:
                 self.mutation_messages.append("Removing character {} at pos {} of {}.".format(repr(s[pos]), pos, node.symbol)) 
 
             node.children[0].symbol = s[:pos] + s[pos+1:]
+            return {
+                'action': 'remove_random_character',
+                'modify': {
+                    'pos': pos,
+                    'data': [s[pos], '']
+                },
+                'node': node.symbol
+            }
+        
+        return None
 
     def insert_random_character(self, node, verbose=False):
         """Insert a random character at a random position"""
@@ -88,6 +98,16 @@ class Mutator:
                 self.mutation_messages.append("Inserting character {} at pos {} of {}.".format(repr(random_character), pos, node.symbol))
 
             node.children[0].symbol = s[:pos] + random_character + s[pos:]
+            return {
+                'action': 'insert_random_character',
+                'modify': {
+                    'pos': pos,
+                    'data': ['', random_character]
+                },
+                'node': node.symbol
+            }
+        
+        return None
 
     def replace_random_character(self, node, verbose=False):
         """Replace a character at a random position with a random character"""
@@ -97,11 +117,21 @@ class Mutator:
             #random_character = chr(random.randrange(0, 127))
             random_character = random_choose_with_weights(self.fuzzer.char_pool)
             if verbose:
-                print("Replacing character {} at pos {} with {}.".format(repr(node.symbol), pos, repr(random_character)))
+                print("Replacing character {} at pos {} with {} of {}.".format(repr(s[pos]), pos, repr(random_character), repr(node.symbol)))
             else:
-                self.mutation_messages.append("Replacing character {} at pos {} with {}.".format(repr(node.symbol), pos, repr(random_character)))
+                self.mutation_messages.append("Replacing character {} at pos {} with {} of {}.".format(repr(s[pos]), pos, repr(random_character), repr(node.symbol)))
 
             node.children[0].symbol = s[:pos] + random_character + s[pos+1:]
+            return {
+                'action': 'replace_random_character',
+                'modify': {
+                    'pos': pos,
+                    'data': [s[pos], random_character]
+                },
+                'node': node.symbol
+            }
+        
+        return None
 
     def remove_random_subtree(self, node, verbose=False):
         """Remove a subtree at a random position under a given node"""
@@ -116,6 +146,16 @@ class Mutator:
             self.input.remove_subtree_from_nodelist(node.children[pos])
 
             node.children = node.children[:pos] + node.children[pos+1:]
+            return {
+                'action': 'remove_random_subtree',
+                'modify': {
+                    'pos': pos,
+                    'data': [node.children[pos].symbol, '<null>']
+                },
+                'node': node.symbol
+            }
+        
+        return None
 
     def replace_random_subtree(self, node, verbose=False):
         """Update a subtree at a random position under a given node 
@@ -137,6 +177,16 @@ class Mutator:
             self.input.remove_subtree_from_nodelist(node.children[pos])
 
             node.children = node.children[:pos] + [random_subtree] + node.children[pos+1:]
+            return {
+                'action': 'replace_random_subtree',
+                'modify': {
+                    'pos': pos,
+                    'data': [node.children[pos].symbol, random_symbol]
+                },
+                'node': node.symbol
+            }
+        
+        return None
 
     def insert_random_subtree(self, node, verbose=False):
         """Insert a subtree at a random position under a given node;
@@ -155,3 +205,14 @@ class Mutator:
                 self.mutation_messages.append("Inserting subtree {} at pos {} of {}.".format(repr(random_symbol), pos, repr(node.symbol)))
 
             node.children = node.children[:pos] + [random_subtree] + node.children[pos:]
+            return {
+                'action': 'insert_random_subtree',
+                'modify': {
+                    'pos': pos,
+                    'data': ['<null>', random_symbol]
+                },
+                'node': node.symbol
+            }
+        
+        return None
+    

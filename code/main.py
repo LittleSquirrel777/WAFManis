@@ -33,7 +33,17 @@ class Fuzzer:
     def read_config(self, configfile):
         config_content = open(configfile).read().replace('config.', 'self.')
         exec(config_content)
-        if False in [item in self.__dict__ for item in ["target_urls", "target_host_headers", "grammar", "min_num_mutations", "max_num_mutations", "symbol_mutation_types"]]:
+        if False in [
+            item in self.__dict__ 
+            for item in [
+                "target_urls", 
+                "target_host_headers", 
+                "grammar", 
+                "min_num_mutations", 
+                "max_num_mutations", 
+                "symbol_mutation_types"
+            ]
+        ]:
             print("Please make sure that the configuration is complete.")
             exit()
 

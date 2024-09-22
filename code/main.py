@@ -11,6 +11,7 @@ from input_tree_node import Node
 from input_tree import InputTree
 from input_tree_mutator import Mutator
 from helper_functions import _print_exception, _parse_args
+from tqdm import tqdm
 
 
 def timed_start(proc: Process, timeout: int):
@@ -88,8 +89,9 @@ class Fuzzer:
                 list_responses.append(b"takes too long")
 
         except Exception as exception:
-            _print_exception([request])
-            raise exception
+            # _print_exception([request])
+            # raise exception
+            pass
 
     def get_responses(self, seed, request):
         threads = []
@@ -163,19 +165,118 @@ class Fuzzer:
 
     def run(self, seeds, _queue):
         responses_list = []
+        node_score = None
+
         for seed in seeds:
             base_input = InputTree(self.grammar, seed, "http://hostname/uri", False)
             base_input.build_tree(base_input.root)
 
-            mutator = Mutator(self, base_input, seed)
-            mutator.mutate_input()
+            mutator = Mutator(self, base_input, seed, node_score=node_score)
+            node_score, mutate_info = mutator.mutate_input()
             if not self.no_sending:
                 responses = self.get_responses(seed, base_input)
             else:
                 responses = []
+
+            for response in responses:
+                if '200 OK'.encode() in response:
+                    node_score[mutate_info['node']] += 10
+                elif '400 Bad Request'.encode() in response:
+                    node_score[mutate_info['node']] += 1
+                else:
+                    node_score[mutate_info['node']] += 0
+
             responses_list.append("{} ***** {} ***** {} ***** {}".format(seed, base_input.tree_to_request(), responses, mutator.mutation_messages))
 
+        print('----')
+        print(node_score)
         _queue.put(responses_list)
+    
+    def run_single_thread(self, seeds, scores = None):
+        responses_list = []
+        return_list = []
+        node_score = scores
+        is_ok = False
+
+        for seed in seeds:
+            base_input = InputTree(self.grammar, seed, "http://hostname/uri", False)
+            base_input.build_tree(base_input.root)
+
+            mutator = Mutator(self, base_input, seed, node_score=node_score)
+            node_score, mutate_info = mutator.mutate_input()
+            if not self.no_sending:
+                responses = self.get_responses(seed, base_input)
+            else:
+                responses = []
+
+            for response in responses:
+                if b'200 OK' in response:
+                    node_score[mutate_info['node']] += 10
+                    is_ok = True
+                elif b'400 Bad Request' in response:
+                    node_score[mutate_info['node']] += 1
+                else:
+                    node_score[mutate_info['node']] += 0
+
+            responses_list.append("{} ***** {} ***** {} ***** {}".format(seed, base_input.tree_to_request(), responses, mutator.mutation_messages))
+            return_list.append({
+                'seed': seed,
+                'response': responses,
+                'request': base_input.tree_to_request(),
+                'message': mutator.mutation_messages,
+                'mutate': mutate_info,
+                'score': node_score
+            })
+
+        # print('----')
+        # print(node_score)
+        return return_list, responses_list, is_ok
+    
+    def blackbox_fuzz_batch(self):
+        for j in range(1): # number of batches
+            num_procs = 1
+            batch_size = 100
+            node_score = None
+            responses_list = []
+
+            is_first_ok = True
+            first_ok_idx = -1
+            resp_oks = 0
+
+            seeds_splitted = [[
+                    j * batch_size + i 
+                    for i 
+                    in list(range(i, batch_size, num_procs))
+                ] for i in range(num_procs)
+            ]
+
+            for i in tqdm(range(batch_size)):
+                ret_vals, resp_vals, is_ok = self.run_single_thread([random.randint(1, 1000)], node_score)
+                node_score = ret_vals[-1]['score']
+                responses_list.extend(resp_vals)
+
+                if is_ok:
+                    if is_first_ok:
+                        first_ok_idx = i + 1 
+                        is_first_ok = False
+                        if i > batch_size // 2:
+                            node_score[ret_vals[-1]['mutate']['node']] += batch_size // 2
+                    resp_oks += 1
+
+                if i > batch_size // 2:
+                    if is_first_ok:
+                        for key, val in node_score.items():
+                            if val >= 10:
+                                node_score[key] = 10
+
+            # responses_list = [ent for sublist in result for ent in sublist]
+            print('Scores:', dict(node_score))
+            print('Min OK Attempt:', first_ok_idx)
+            print('Total OK Responses:', f'{resp_oks}/{batch_size}')
+
+            with open("batch{}.out".format(j), 'w') as outfile:
+                outfile.write("\n".join(responses_list))
+                outfile.write("\n")
 
     def run_individual(self, seeds, _queue):
         responses_list = []
@@ -200,6 +301,6 @@ fuzzer = Fuzzer(args.verbose, args.seed, args.outfilename, args.seedfile, args.n
 if args.individual_mode:
     fuzzer.blackbox_fuzz_individual(fuzzer.seedfile, fuzzer.seed)
 else:
-    fuzzer.blackbox_fuzz_parallel_batch()
+    fuzzer.blackbox_fuzz_batch()
 
-print(time.time() - start)
+print('Time cost: ', time.time() - start, 's')

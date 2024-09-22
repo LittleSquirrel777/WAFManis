@@ -1,7 +1,9 @@
 import random
 import copy
+from collections import defaultdict
+
 from input_tree_node import Node
-from helper_functions import _print_exception, random_choose_with_weights
+from helper_functions import _print_exception, random_choose_with_weights,  select_node_by_score
 
 class Mutator:
     mutation_types = {
@@ -9,12 +11,19 @@ class Mutator:
         1   # string mutations
     } 
 
-    def __init__(self, fuzzer, _input, seed=0, reproduce_mode = False):
+    def __init__(self, fuzzer, _input, seed=0, reproduce_mode = False, node_score = None):
         self.fuzzer = fuzzer
         self.input = _input
         random.seed(seed)
-        self.reproduce_mode = reproduce_mode
         self.mutation_messages = []
+        self.reproduce_mode = reproduce_mode
+        self.node_score = defaultdict(
+            lambda: 1, {
+                node.symbol: 1
+                for node
+                in self.input.nonterminal_node_list.values() 
+                if node.symbol in self.fuzzer.symbol_mutation_types
+            }) if not node_score else node_score
 
     def mutate_input(self, source_of_mutations = []):
         try:
@@ -26,11 +35,24 @@ class Mutator:
                     self.mutations = []
 
                 while num_done_mutations < num_mutations:
-                    node_to_mutate_pool = [node for node in self.input.nonterminal_node_list.values() if node.symbol in self.fuzzer.symbol_mutation_types]
+                    node_to_mutate_pool = [
+                        node 
+                        for node 
+                        in self.input.nonterminal_node_list.values() 
+                        if node.symbol in self.fuzzer.symbol_mutation_types
+                    ]
+                    s_to_n = {
+                        node.symbol: node
+                        for node
+                        in node_to_mutate_pool
+                    }
                     if node_to_mutate_pool == []:
                         break
 
-                    node_to_mutate = random.choice(node_to_mutate_pool)
+                    # node_to_mutate = random.choice(node_to_mutate_pool)
+                    node_to_mutate = select_node_by_score(self.node_score, s_to_n)
+                    if not node_to_mutate:
+                        node_to_mutate = random.choice(node_to_mutate_pool)
         
                     if self.fuzzer.symbol_mutation_types[node_to_mutate.symbol] == 1: #string mutations
                         mutators = [
@@ -48,7 +70,7 @@ class Mutator:
                     chosen_mutator = random_choose_with_weights(mutators)
                     if self.reproduce_mode:
                         self.mutations.append([chosen_mutator, node_to_mutate, random.getstate()])
-                    self.__getattribute__(chosen_mutator)(node_to_mutate, self.fuzzer.verbose)
+                    mutate_info = self.__getattribute__(chosen_mutator)(node_to_mutate, self.fuzzer.verbose)
                 
                     num_done_mutations += 1
 
@@ -57,11 +79,13 @@ class Mutator:
                     random.setstate(mutation[2])
                     if mutation[1].id not in self.input.nonterminal_node_list:
                         raise Exception("KeyNotFound: {}".format(mutation[1].id))
-                    self.__getattribute__(mutation[0])(self.input.nonterminal_node_list[mutation[1].id], False)
+                    mutate_info = self.__getattribute__(mutation[0])(self.input.nonterminal_node_list[mutation[1].id], False)
 
         except Exception as exception: 
             _print_exception() 
             raise(exception)
+        
+        return self.node_score, mutate_info
 
     def remove_random_character(self, node, verbose=False):
         """Remove a character at a random position"""
@@ -104,7 +128,7 @@ class Mutator:
                     'pos': pos,
                     'data': ['', random_character]
                 },
-                'node': node.symbol
+                'node': node.symbol,
             }
         
         return None
@@ -143,6 +167,7 @@ class Mutator:
                 self.mutation_messages.append("Removing subtree {} under {}.".format(repr(node.children[pos].symbol), repr(node.symbol)))
 
             # Remove the node and its children also from the node list
+            old_symbol = node.children[pos].symbol
             self.input.remove_subtree_from_nodelist(node.children[pos])
 
             node.children = node.children[:pos] + node.children[pos+1:]
@@ -150,7 +175,7 @@ class Mutator:
                 'action': 'remove_random_subtree',
                 'modify': {
                     'pos': pos,
-                    'data': [node.children[pos].symbol, '<null>']
+                    'data': [old_symbol, '<null>']
                 },
                 'node': node.symbol
             }
@@ -174,6 +199,7 @@ class Mutator:
                 self.mutation_messages.append("Replacing subtree {} under {} with {}.".format(repr(node.children[pos].symbol), repr(node.symbol), repr(random_symbol)))
           
             # Remove the node and its children also from the node list
+            old_symbol = node.children[pos].symbol
             self.input.remove_subtree_from_nodelist(node.children[pos])
 
             node.children = node.children[:pos] + [random_subtree] + node.children[pos+1:]
@@ -181,7 +207,7 @@ class Mutator:
                 'action': 'replace_random_subtree',
                 'modify': {
                     'pos': pos,
-                    'data': [node.children[pos].symbol, random_symbol]
+                    'data': [old_symbol, random_symbol]
                 },
                 'node': node.symbol
             }

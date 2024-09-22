@@ -65,3 +65,25 @@ def random_choose_with_weights(possible_expansions):
         chosen_expansion = chosen_expansion.split(',')[0][1:]
 
     return chosen_expansion
+
+def select_node_by_score(score_dict: dict, node_list: dict):
+    filtered_nodes = {
+        node: score 
+        for node, score 
+        in score_dict.items() 
+        if score > 0 and node in node_list
+    }
+
+    if not filtered_nodes:
+        return None
+
+    total_score = sum(filtered_nodes.values())
+    rand_value = random.uniform(0, total_score)
+
+    cumulative_score = 0
+    for node, score in filtered_nodes.items():
+        cumulative_score += score
+        if rand_value <= cumulative_score:
+            return node_list[node]
+        
+    return None

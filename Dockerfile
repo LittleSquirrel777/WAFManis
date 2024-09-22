@@ -1,4 +1,4 @@
-FROM python:3.6
+FROM python:3.9
   
-ADD t-reqs /t-reqs
+ADD protorank /protorank
 RUN pip install configargparse

@@ -4,9 +4,6 @@ import configargparse
 import random
 
 def _parse_url(url):
-    """ This function extracts certain 
-        components from a given URL.
-    """
     authority = url.split('/')[2]
     uri = '/'.join(url.split('/')[3:])
 
@@ -19,10 +16,6 @@ def _parse_url(url):
     return host, port, authority, uri
 
 def _print_exception(extra_details=[]):
-    """ This function prints exception details
-        including the line number where the exception
-        is raised, which is helpful in most cases.
-    """
     exc_type, exc_obj, tb = sys.exc_info()
     f = tb.tb_frame
     lineno = tb.tb_lineno
@@ -32,9 +25,6 @@ def _print_exception(extra_details=[]):
     print('EXCEPTION IN ({}, LINE {} "{}"): {}, {}'.format(filename, lineno, line.strip(), exc_obj, extra_details))
 
 def _parse_args(): 
-    """ This function is for parsing the command
-        line arguments fed into the script.
-    """
     parser = configargparse.ArgParser(description='T-Reqs: Grammar-based HTTP Fuzzer')
 
     parser.add('-c', dest="config", required=True, help='config file path')

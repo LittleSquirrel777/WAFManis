@@ -5,22 +5,7 @@ from collections import deque
 import re
 
 class InputTree:
-
     def __init__(self, grammar, seed, url, verbose):
-        """ Constructs a request object.
-            
-        Args:
-          grammar: input grammar for describing the structure
-          seed: a value based on which random number is
-            generated. It is used for reproducability.
-
-          url: address of the target endpoint
-          verbose: a parameter to decide whether messages
-            should be displayed.
-
-        Returns:
-          the constructed object
-        """
         self.nonterminal_node_list = {}
         Node.symbol_counts = {}
         self.root = Node('<start>')
@@ -54,18 +39,12 @@ class InputTree:
         return start_node
 
     def remove_subtree_from_nodelist(self, start_node):
-        """ This function updates the node_list dictionary
-            when a node (and as a result its children) are removed.
-        """
         if not start_node.is_terminal:
             self.nonterminal_node_list.pop(start_node.id)
             for child in start_node.children:
                 self.remove_subtree_from_nodelist(child)
 
     def tree_to_request(self, partial=False):
-        """ This function converts the request 
-            object into bytes. 
-        """
         self.request = b""
         self.expand_node(self.root)
         if partial:#request in its most basic form -- with placeholder values.

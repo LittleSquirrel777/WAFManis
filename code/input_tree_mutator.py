@@ -88,7 +88,6 @@ class Mutator:
         return self.node_score, mutate_info
 
     def remove_random_character(self, node, verbose=False):
-        """Remove a character at a random position"""
         s = node.children[0].symbol
         if s:
             pos = random.randint(0, len(s) - 1)
@@ -110,7 +109,6 @@ class Mutator:
         return None
 
     def insert_random_character(self, node, verbose=False):
-        """Insert a random character at a random position"""
         s = node.children[0].symbol
         if s:
             pos = random.randint(0, len(s) - 1)
@@ -134,7 +132,6 @@ class Mutator:
         return None
 
     def replace_random_character(self, node, verbose=False):
-        """Replace a character at a random position with a random character"""
         s = node.children[0].symbol
         if s:
             pos = random.randint(0, len(s) - 1)
@@ -158,7 +155,6 @@ class Mutator:
         return None
 
     def remove_random_subtree(self, node, verbose=False):
-        """Remove a subtree at a random position under a given node"""
         if node.children:
             pos = random.randint(0, len(node.children) - 1)
             if verbose:
@@ -183,9 +179,6 @@ class Mutator:
         return None
 
     def replace_random_subtree(self, node, verbose=False):
-        """Update a subtree at a random position under a given node 
-          with a subtree expanded from a symbol chosen randomly 
-          from the list of symbols"""
         if node.children:
             pos = random.randint(0, len(node.children) - 1)
             if hasattr(self.fuzzer, 'symbol_pool'):
@@ -215,9 +208,6 @@ class Mutator:
         return None
 
     def insert_random_subtree(self, node, verbose=False):
-        """Insert a subtree at a random position under a given node;
-          inserted subtree is expanded from a symbol chosen randomly 
-          from the list of symbols"""
         if node.children:
             pos = random.randint(0, len(node.children) - 1)
             if hasattr(self.fuzzer, 'symbol_pool'):

@@ -1,0 +1,6 @@
+
+{
+
+"some-header": ['<accept>', '<accept-charset>', '<accept-encoding>', '<accept-language>', '<accept-ranges>', '<allow>', '<alpn>', '<alt-used>', '<authorization>', '<cache-control>', '<caldav-timezones>', '<cdn-loop>', '<content-encoding>', '<content-language>', '<content-length>', '<content-location>', '<cookie>', '<date>', '<depth>', '<destination>', '<early-data>', '<expect>', '<expires>', '<forwarded>', '<from>', '<http2-settings>', '<if>', '<if-match>', '<if-modified-since>', '<if-none-match>', '<if-range>', '<if-schedule-tag-match>', '<if-unmodified-since>', '<link>', '<max-forwards>', '<mime-version>', '<odata-isolation>', '<odata-maxversion>', '<odata-version>', '<ordering-type>', '<origin>', '<oscore>', '<overwrite>', '<position>', '<pragma>', '<prefer>', '<proxy-authorization>', '<range>', '<referer>', '<schedule-reply>', '<sec-token-binding>', '<sec-websocket-accept>', '<sec-websocket-extensions>', '<sec-websocket-key>', '<sec-websocket-protocol>', '<sec-websocket-version>', '<slug>', '<te>', '<timeout>', '<topic>', '<trailer>', '<transfer-encoding>', '<ttl>', '<urgency>', '<upgrade>', '<user-agent>', '<via>']
+
+}

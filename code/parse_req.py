@@ -3,22 +3,19 @@ from collections import defaultdict, OrderedDict
 import re, json
 
 
-REQ = '''POST /sqli_post HTTP/1.1
-Host: waf:9002
-Content-Length: 64
-Cache-Control: max-age=0
-Upgrade-Insecure-Requests: 1
-Origin: http://waf:9002
-Content-Type: application/x-www-form-urlencoded
+REQ = '''POST /rce_json HTTP/1.1
+Host: waf:9001
+Content-Length: 25
 User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
-Referer: http://waf:9002/
+Content-Type: application/json
+Accept: */*
+Origin: http://waf:9001
+Referer: http://waf:9001/
 Accept-Encoding: gzip, deflate, br
 Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,vi;q=0.7
 Connection: close
 
-id=1+UNION+SELECT+null%2C+password+FROM+users+WHERE+id+%3D+1+--+
-'''
+{"cmd":"cat /etc/passwd"}'''
 
 
 def split_comm(gram_str: str) -> List[str]:
@@ -39,7 +36,7 @@ class Parser:
         #     '<method-name><request-uri><http-version><base><entity-size-header><some-header><some-header><body>'
         # ]
         self.ex_grammar['<request>'] = [
-            '<method-name><request-uri><http-version>'
+            '<method-name><space><request-uri><space><http-version><newline>'
         ]
 
         self.ex_grammar['<space>'] = [' ']
@@ -110,6 +107,7 @@ class Parser:
             real_cont_name = f'<{key_name.lower()}-content>'
             base_struct = self.base_grammar.get(key)
             if base_struct is not None:
+                print(base_struct[0])
                 real_cont_name = split_comm(base_struct[0])[-2]
 
             easy_target[key] = [f'<{key_name.lower()}-header-name><colon><space>{real_cont_name}<newline>']
@@ -129,6 +127,19 @@ class Parser:
                 easy_target = {**easy_target, **subdict}
 
         easy_target['<body>'] = [with_body[-1].split('\r\n')[0]]
+        self.ex_grammar['<request>'][0] += '<newline>'
+
+        if len(easy_target['<body>'][0]) != 0:
+            self.ex_grammar['<request>'][0] += '<body>'
+        
+        host_name = easy_target.get('<host-content>')
+        if host_name is not None:
+            easy_target['<host-content>'] = ['_HOST_']
+
+        cont_length = easy_target.get('<content-length-value>')
+        if cont_length is not None:
+            easy_target['<content-length-value>'] = ['_CONTENT_LENGTH_']
+
         return {**self.ex_grammar, **easy_target}
 
 

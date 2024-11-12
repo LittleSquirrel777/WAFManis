@@ -2,3 +2,5 @@
 .DS_Store
 batch0.out
 ex_grammar.json
+figures.ipynb
+test/

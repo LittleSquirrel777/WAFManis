@@ -4,9 +4,10 @@ import copy
 import socket
 import threading
 from multiprocessing import Process, Queue
-from threading import Timer
+from threading import Timer, Thread
 import time
 
+from typing import List
 from input_tree_node import Node
 from input_tree import InputTree
 from input_tree_mutator import Mutator
@@ -94,7 +95,7 @@ class Fuzzer:
             pass
 
     def get_responses(self, seed, request):
-        threads = []
+        threads: List[Thread] = []
         list_responses = []
         for target_url in self.target_urls:
             request.seed = seed
@@ -107,7 +108,7 @@ class Fuzzer:
             thread.start()
 
         for thread in threads:
-            thread.join(5)
+            thread.join(0.1)
 
         return list_responses
 
@@ -180,11 +181,12 @@ class Fuzzer:
 
             for response in responses:
                 if '200 OK'.encode() in response:
-                    node_score[mutate_info['node']] += 10
+                    node_score[mutate_info['node']] += 20
                 elif '400 Bad Request'.encode() in response:
-                    node_score[mutate_info['node']] += 1
+                    node_score[mutate_info['node']] += 5
                 else:
-                    node_score[mutate_info['node']] += 0
+                    node_score[mutate_info['node']] -= 1 \
+                        if node_score[mutate_info['node']] > 0 else 0
 
             responses_list.append("{} ***** {} ***** {} ***** {}".format(seed, base_input.tree_to_request(), responses, mutator.mutation_messages))
 

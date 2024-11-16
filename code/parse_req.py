@@ -4,29 +4,20 @@ import re, json
 import argparse
 
 
-REQ = '''POST /rce_json HTTP/1.1
-Host: waf:9001
-Content-Length: 25
-User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36
-Content-Type: application/json
-Accept: */*
-Origin: http://waf:9001
-Referer: http://waf:9001/
-Accept-Encoding: gzip, deflate, br
-Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,vi;q=0.7
-Connection: close
-
-{"cmd":"cat /etc/passwd"}'''
-
 BASIC = {
     'config.target_urls': ["http://180.163.83.11:9001/rce_json"],
     'config.target_host_headers': ["180.163.83.11"],
     'config.min_num_mutations': 1,
     'config.max_num_mutations': 1,
-    'config.symbol_mutation_types': {'<request-line>': 0, '<space>': 1, '<protocol>': 1, '<separator>': 1, '<version>': 1, '<newline>': 1, '<mime-type-subtype>': 1},
-    'config.char_pool': ['\x00', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07', '\x08', '\t', '\n', '\x0b', '\x0c', '\r', '\x0e', '\x0f', '\x10', '\x11', '\x12', '\x13', '\x14', '\x15', '\x16', '\x17', '\x18', '\x19', '\x1a', '\x1b', '\x1c', '\x1d', '\x1e', '\x1f', ' ', '!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?', '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', ']', '^', '_', '`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~', '\x7f'],
+    'config.symbol_mutation_types': {},
+    # 'config.char_pool': ['\x00', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07', '\x08', '\t', '\n', '\x0b', '\x0c', '\r', '\x0e', '\x0f', '\x10', '\x11', '\x12', '\x13', '\x14', '\x15', '\x16', '\x17', '\x18', '\x19', '\x1a', '\x1b', '\x1c', '\x1d', '\x1e', '\x1f', ' ', '!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?', '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', ']', '^', '_', '`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~', '\x7f'],
+    'config.char_pool': ['*', '?'],
     'config.symbol_pool': ['(<request-line>, opt(prob=0.9))', '<method-name>', '<space>', '<protocol>', '<separator>', '<version>', '<newline>'],
 }
+
+immutable = {'<host-name>', '<content-length-value>', '<absolute-host>'}
+highlight_headers = {'<content-type>', '<connection>'}
+highlight_contents = set([])
 
 
 def split_comm(gram_str: str) -> List[str]:
@@ -84,7 +75,7 @@ class Parser:
         def recursive_extract(current_key):
             if current_key in self.base_grammar:
                 for production in self.base_grammar[current_key]:
-                    result[current_key] = list(set(result.get(current_key, []) + [production]))
+                    result[current_key] = list(set(result.get(current_key, []) + [production])) 
                     
                     sub_items = split_comm(production)
                     for sub_item in sub_items:
@@ -96,7 +87,7 @@ class Parser:
         return result
 
     def parse(self, req: str, father: Dict[str, str], self_opt=0.9):
-        easy_target = OrderedDict()
+        easy_target: Dict[str, List[str]] = {}
         with_body = req.split('\r\n\r\n')
 
         without_body = with_body[0]
@@ -110,10 +101,17 @@ class Parser:
                 easy_target['<request-uri>'] = [req_msg[1]]
                 easy_target['<http-version>'] = [req_msg[2]]
                 continue
+
+            if req_head_and_cont[0] == 'Host':
+                BASIC['config.target_host_headers'] = [req_head_and_cont[1].split(':')[0]]
+                BASIC['config.target_urls'] = [f'http://{req_head_and_cont[1]}{easy_target["<request-uri>"][0]}']
             
             key_name = req_head_and_cont[0]
             key = f"<{key_name.lower()}>"
             self.ex_grammar['<request>'][0] += key
+
+            if key in highlight_headers:
+                highlight_contents.add(req_head_and_cont[1]) 
 
             real_cont_name = f'<{key_name.lower()}-content>'
             base_struct = self.base_grammar.get(key)
@@ -138,12 +136,14 @@ class Parser:
                 easy_target = {**easy_target, **subdict}
 
             for k in easy_target:
-                easy_target[k] = [
-                    item 
-                    if item != req_head_and_cont[1] 
-                    else f'({req_head_and_cont[1]}, opt(prob={self_opt}))'
-                    for item in easy_target[k]
-                ]
+                if k in immutable:
+                    continue
+                
+                if not (easy_target[k][0].startswith('<') and easy_target[k][0].endswith('>')):
+                    BASIC['config.symbol_mutation_types'][k] = 1
+                else:
+                    BASIC['config.symbol_mutation_types'][k] = 0
+
 
         easy_target['<body>'] = [with_body[-1].split('\r\n')[0]]
         self.ex_grammar['<request>'][0] += '<newline>'
@@ -151,21 +151,24 @@ class Parser:
         if len(easy_target['<body>'][0]) != 0:
             self.ex_grammar['<request>'][0] += '<body>'
         
-        host_name = easy_target.get('<host-name>')
-        if host_name is not None:
-            easy_target['<host-name>'] = ['_HOST_']
+        easy_target.update({
+            '<host-name>': ['_HOST_'],
+            '<content-length-value>': ['_CONTENT_LENGTH_'],
+            # '<content-type-value>': ['<mime-type-subtype>'],
+            '<absolute-host>': ['<host-name>'],
+            # '<status>': ['close'],
+            '<absolute-uri>': BASIC['config.target_urls'],
+            '<origin-value>': BASIC['config.target_urls']
+        })
 
-        cont_length = easy_target.get('<content-length-value>')
-        if cont_length is not None:
-            easy_target['<content-length-value>'] = ['_CONTENT_LENGTH_']
-
-        cont_type = easy_target.get("<content-type-value>")
-        if cont_type is not None:
-            easy_target["<content-type-value>"] = ["<mime-type-subtype>"]
-
-        abs_host = easy_target.get("<absolute-host>")
-        if abs_host is not None:
-            easy_target["<absolute-host>"] = ["<host-name>"]
+        for k in easy_target:
+            easy_target[k] = [
+                item 
+                # if item != req_head_and_cont[1] 
+                if not (item in highlight_contents) 
+                else f'({item}, opt(prob={self_opt}))'
+                for item in easy_target[k]
+            ]
 
         return {**self.ex_grammar, **easy_target}
 
@@ -183,8 +186,9 @@ if __name__ == '__main__':
     r = parser.fix(req)
     
     father = parser.get_fathers()
-    r = parser.parse(r, father)
+    r = parser.parse(r, father, 0.9)
     to_write = json.dumps(r, indent=4)
+    print(highlight_contents)
 
     with open(args.conf, "w", encoding='utf-8') as file:
         for k, v in BASIC.items():

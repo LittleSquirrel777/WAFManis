@@ -13,6 +13,7 @@ from input_tree import InputTree
 from input_tree_mutator import Mutator
 from helper_functions import _print_exception, _parse_args
 from tqdm import tqdm
+from collections import defaultdict
 
 
 def timed_start(proc: Process, timeout: int):
@@ -197,7 +198,10 @@ class Fuzzer:
     def run_single_thread(self, seeds, scores = None):
         responses_list = []
         return_list = []
-        node_score = scores
+        if scores:
+            node_score = scores
+        else:
+            node_score = defaultdict(lambda _: 10)
         is_ok = False
 
         for seed in seeds:
@@ -212,13 +216,15 @@ class Fuzzer:
                 responses = []
 
             for response in responses:
-                if b'200 OK' in response:
-                    node_score[mutate_info['node']] += 10
-                    is_ok = True
-                elif b'400 Bad Request' in response:
-                    node_score[mutate_info['node']] += 1
-                else:
-                    node_score[mutate_info['node']] += 0
+                if mutate_info:
+                    if b'200 OK' in response:
+                        node_score[mutate_info['node']] += 20
+                        is_ok = True
+                    elif b'400 Bad Request' in response:
+                        node_score[mutate_info['node']] += 5
+                    else:
+                        node_score[mutate_info['node']] -= 1 \
+                            if node_score[mutate_info['node']] > 0 else 0
 
             responses_list.append("{} ***** {} ***** {} ***** {}".format(seed, base_input.tree_to_request(), responses, mutator.mutation_messages))
             return_list.append({
@@ -234,10 +240,10 @@ class Fuzzer:
         # print(node_score)
         return return_list, responses_list, is_ok
     
-    def blackbox_fuzz_batch(self):
+    def blackbox_fuzz_batch(self, b_size):
         for j in range(1): # number of batches
             num_procs = 1
-            batch_size = 100
+            batch_size = b_size
             node_score = None
             responses_list = []
 
@@ -303,6 +309,6 @@ fuzzer = Fuzzer(args.verbose, args.seed, args.outfilename, args.seedfile, args.n
 if args.individual_mode:
     fuzzer.blackbox_fuzz_individual(fuzzer.seedfile, fuzzer.seed)
 else:
-    fuzzer.blackbox_fuzz_batch()
+    fuzzer.blackbox_fuzz_batch(100)
 
 print('Time cost: ', time.time() - start, 's')

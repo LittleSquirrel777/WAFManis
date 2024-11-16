@@ -1,6 +1,6 @@
 import sys
 import linecache
-import configargparse
+import argparse
 import random
 
 def _parse_url(url):
@@ -25,18 +25,17 @@ def _print_exception(extra_details=[]):
     print('EXCEPTION IN ({}, LINE {} "{}"): {}, {}'.format(filename, lineno, line.strip(), exc_obj, extra_details))
 
 def _parse_args(): 
-    parser = configargparse.ArgParser(description='T-Reqs: Grammar-based HTTP Fuzzer')
+    parser = argparse.ArgumentParser(description='T-Reqs: Grammar-based HTTP Fuzzer')
 
-    parser.add('-c', dest="config", required=True, help='config file path')
-    parser.add('-i', action="store_true", dest="individual_mode", help="Turns the individual mode on where the fuzzer is run only for specified seeds.")
-    parser.add('-n', action="store_true", dest="no_sending", help="Turns the no-sending mode on where the fuzzer only generates the inputs without sending them to the targets.")
-    parser.add('-s', dest="seed", help="Only needed for individual mode. Seed parameter for random number generator.")
-    parser.add('-v', action="store_true", dest="verbose", help="Only needed for individual mode. Adds verbosity.")
-    parser.add('-o', dest="outfilename", help = "Only needed for individual mode. File to write output.")
-    parser.add('-f', dest="seedfile", help = "Only needed for individual mode. Input file containing seeds.")
+    parser.add_argument('-c', dest="config", required=True, help='config file path')
+    parser.add_argument('-i', action="store_true", dest="individual_mode", help="Turns the individual mode on where the fuzzer is run only for specified seeds.")
+    parser.add_argument('-n', action="store_true", dest="no_sending", help="Turns the no-sending mode on where the fuzzer only generates the inputs without sending them to the targets.")
+    parser.add_argument('-s', dest="seed", help="Only needed for individual mode. Seed parameter for random number generator.")
+    parser.add_argument('-v', action="store_true", dest="verbose", help="Only needed for individual mode. Adds verbosity.")
+    parser.add_argument('-o', dest="outfilename", help="Only needed for individual mode. File to write output.")
+    parser.add_argument('-f', dest="seedfile", help="Only needed for individual mode. Input file containing seeds.")
 
     args = parser.parse_args()
-
     return args
 
 def random_choose_with_weights(possible_expansions):

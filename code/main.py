@@ -109,7 +109,7 @@ class Fuzzer:
             thread.start()
 
         for thread in threads:
-            thread.join(0.1)
+            thread.join(0.5)
 
         return list_responses
 
